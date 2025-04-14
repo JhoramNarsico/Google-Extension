@@ -1,0 +1,23 @@
+{
+    "manifest_version": 3,
+    "name": "Leads Tracker",
+    "version": "1.0",
+    "description": "Save and track important links with ease",
+    "action": {
+      "default_popup": "index.html",
+      "default_icon": {
+        "16": "icon16.png",
+        "48": "icon48.png",
+        "128": "icon128.png"
+      }
+    },
+    "permissions": [
+      "tabs",
+      "storage"
+    ],
+    "icons": {
+      "16": "icon16.png",
+      "48": "icon48.png",
+      "128": "icon128.png"
+    }
+  }
