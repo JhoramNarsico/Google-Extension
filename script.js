@@ -4,11 +4,52 @@ const inputBtn = document.getElementById("input-btn");
 const ulEl = document.getElementById("ul-el");
 const deleteBtn = document.getElementById("delete-btn");
 const tabBtn = document.getElementById("tab-btn");
+const searchEl = document.getElementById("search-el");
+const categoryEl = document.getElementById("category-el");
 
 // Load leads from local storage
 loadLeads();
 
-// Function to load leads from localStorage
+/**
+ * Validates if a string is a valid URL
+ * @param {string} string - The URL to validate
+ * @returns {boolean} - True if valid, false otherwise
+ */
+function isValidURL(string) {
+    try {
+        new URL(string.startsWith('http') ? string : `https://${string}`);
+        return true;
+    } catch (_) {
+        return false;
+    }
+}
+
+/**
+ * Sanitizes a URL to prevent XSS
+ * @param {string} url - The URL to sanitize
+ * @returns {string} - Sanitized URL
+ */
+function sanitizeURL(url) {
+    const div = document.createElement("div");
+    div.textContent = url;
+    return div.innerHTML;
+}
+
+/**
+ * Displays an error message temporarily
+ * @param {string} message - The error message to show
+ */
+function showError(message) {
+    const errorDiv = document.createElement("div");
+    errorDiv.className = "error-message";
+    errorDiv.textContent = message;
+    ulEl.prepend(errorDiv);
+    setTimeout(() => errorDiv.remove(), 3000);
+}
+
+/**
+ * Loads leads from localStorage
+ */
 function loadLeads() {
     try {
         const leadsFromLocalStorage = JSON.parse(localStorage.getItem("myLeads"));
@@ -17,31 +58,60 @@ function loadLeads() {
             render(myLeads);
         }
     } catch (error) {
-        console.error("Error loading leads from localStorage:", error);
-        // If corrupted data, clear it
+        showError("Failed to load leads. Storage cleared.");
         localStorage.removeItem("myLeads");
     }
 }
 
+/**
+ * Debounces a function to limit execution rate
+ * @param {Function} func - The function to debounce
+ * @param {number} wait - Wait time in milliseconds
+ * @returns {Function} - Debounced function
+ */
+function debounce(func, wait) {
+    let timeout;
+    return function executedFunction(...args) {
+        const later = () => {
+            clearTimeout(timeout);
+            func(...args);
+        };
+        clearTimeout(timeout);
+        timeout = setTimeout(later, wait);
+    };
+}
+
+// Event listener for search input
+searchEl.addEventListener("input", debounce(function() {
+    const query = searchEl.value.toLowerCase();
+    const filteredLeads = myLeads.filter(lead => 
+        lead.url.toLowerCase().includes(query) || 
+        (new URL(lead.url).hostname.toLowerCase().includes(query))
+    );
+    render(filteredLeads);
+}, 300));
+
 // Event listener for "Save Tab" button
 tabBtn.addEventListener("click", function() {
-    // Make sure we're in a Chrome extension environment
+    tabBtn.classList.add("loading");
     if (typeof chrome !== 'undefined' && chrome.tabs) {
         chrome.tabs.query({active: true, currentWindow: true}, function(tabs) {
             if (tabs && tabs[0] && tabs[0].url) {
-                // Don't add duplicates
-                if (!myLeads.includes(tabs[0].url)) {
-                    myLeads.push(tabs[0].url);
+                const url = tabs[0].url;
+                if (!myLeads.some(lead => lead.url === url)) {
+                    myLeads.push({ url, category: categoryEl.value });
                     saveAndRender();
                 } else {
-                    alert("This URL is already saved!");
+                    showError("This URL is already saved!");
                 }
             } else {
-                alert("Couldn't access current tab URL.");
+                showError("Couldn't access current tab URL.");
             }
+            tabBtn.classList.remove("loading");
         });
     } else {
-        alert("This feature only works when running as a Chrome extension.");
+        showError("This feature only works as a Chrome extension.");
+        tabBtn.classList.remove("loading");
     }
 });
 
@@ -57,30 +127,35 @@ inputEl.addEventListener("keypress", function(event) {
     }
 });
 
-// Function to save input value
+/**
+ * Saves input URL with category
+ */
 function saveInput() {
+    inputBtn.classList.add("loading");
     const inputValue = inputEl.value.trim();
-    
     if (inputValue === "") {
-        alert("Please enter a URL");
+        showError("Please enter a URL");
+        inputBtn.classList.remove("loading");
         return;
     }
-    
-    // Add http:// prefix if not present
     let formattedInput = inputValue;
     if (!inputValue.startsWith("http://") && !inputValue.startsWith("https://")) {
         formattedInput = "https://" + inputValue;
     }
-    
-    // Don't add duplicates
-    if (!myLeads.includes(formattedInput)) {
-        myLeads.push(formattedInput);
+    if (!isValidURL(formattedInput)) {
+        showError("Please enter a valid URL");
+        inputBtn.classList.remove("loading");
+        return;
+    }
+    if (!myLeads.some(lead => lead.url === formattedInput)) {
+        myLeads.push({ url: formattedInput, category: categoryEl.value });
         inputEl.value = "";
         saveAndRender();
     } else {
-        alert("This URL is already saved!");
+        showError("This URL is already saved!");
         inputEl.value = "";
     }
+    inputBtn.classList.remove("loading");
 }
 
 // Event listener for "Delete All" button
@@ -92,47 +167,54 @@ deleteBtn.addEventListener("dblclick", function() {
             render(myLeads);
         }
     } else {
-        alert("No leads to delete!");
+        showError("No leads to delete!");
     }
 });
 
-// Function to save to localStorage and render
+/**
+ * Saves to localStorage and renders
+ */
 function saveAndRender() {
     localStorage.setItem("myLeads", JSON.stringify(myLeads));
     render(myLeads);
 }
 
-// Function to render leads
+/**
+ * Renders leads to the UI
+ * @param {Array} leads - Array of lead objects
+ */
 function render(leads) {
-    let listItems = "";
+    const fragment = document.createDocumentFragment();
+    const tempUl = document.createElement("ul");
+    tempUl.setAttribute("role", "list");
     
     if (leads.length === 0) {
-        // Show message when no leads
-        ulEl.innerHTML = "<p class='no-leads'>No saved leads yet. Add some using the input field or 'Save Tab' button!</p>";
-        return;
-    }
-    
-    for (let i = 0; i < leads.length; i++) {
-        // Get domain for display
-        let displayText = leads[i];
-        try {
-            const url = new URL(leads[i]);
-            displayText = url.hostname;
-        } catch (e) {
-            // Use full URL if parsing fails
-        }
-        
-        listItems += `
-            <li>
-                <a target='_blank' href='${leads[i]}' title='${leads[i]}'>
-                    ${displayText}
+        const p = document.createElement("p");
+        p.className = "no-leads";
+        p.textContent = "No saved leads yet. Add some using the input field or 'Save Tab' button!";
+        tempUl.appendChild(p);
+    } else {
+        leads.forEach((lead, i) => {
+            const safeURL = sanitizeURL(lead.url);
+            let displayText = safeURL;
+            try {
+                const url = new URL(safeURL);
+                displayText = url.hostname;
+            } catch (e) {}
+            const li = document.createElement("li");
+            li.innerHTML = `
+                <a target='_blank' href='${safeURL}' title='${safeURL} (${lead.category})'>
+                    ${displayText} <span class='category'>${lead.category}</span>
                 </a>
-                <span class="delete-lead" data-index="${i}">×</span>
-            </li>
-        `;
+                <button class='delete-lead' data-index='${i}' aria-label='Delete ${displayText}'>×</button>
+            `;
+            tempUl.appendChild(li);
+        });
     }
     
-    ulEl.innerHTML = listItems;
+    fragment.appendChild(tempUl);
+    ulEl.innerHTML = "";
+    ulEl.appendChild(fragment);
     
     // Add event listeners for individual lead deletion
     document.querySelectorAll('.delete-lead').forEach(button => {
@@ -144,31 +226,3 @@ function render(leads) {
         });
     });
 }
-
-// Add some styling for the delete buttons
-const style = document.createElement('style');
-style.textContent = `
-    .no-leads {
-        color: #888;
-        text-align: center;
-        font-style: italic;
-    }
-    
-    li {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-    }
-    
-    .delete-lead {
-        color: #999;
-        font-size: 18px;
-        cursor: pointer;
-        padding: 0 5px;
-    }
-    
-    .delete-lead:hover {
-        color: #ff4444;
-    }
-`;
-document.head.appendChild(style);

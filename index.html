@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
     <head>
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -7,14 +7,43 @@
         <link rel="stylesheet" href="style.css">
     </head>
     <body>
-        <h1>Leads Tracker</h1>
-        <input type="text" id="input-el" placeholder="Enter a URL...">
-        <div class="button-container">
-            <button id="input-btn">SAVE INPUT</button>
-            <button id="tab-btn">SAVE TAB</button>
-            <button id="delete-btn">DELETE ALL</button>
-        </div>
-        <ul id="ul-el"></ul>
+        <header>
+            <h1>Leads Tracker</h1>
+        </header>
+        <main>
+            <div class="search-container">
+                <input type="text" id="search-el" placeholder="Search leads..." aria-label="Search saved leads">
+            </div>
+            <div class="input-card">
+                <input type="text" id="input-el" placeholder="Enter a URL..." aria-label="Enter a URL to save">
+                <select id="category-el" aria-label="Select lead category">
+                    <option value="general">General</option>
+                    <option value="work">Work</option>
+                    <option value="personal">Personal</option>
+                </select>
+                <div class="button-container">
+                    <button id="input-btn" aria-label="Save entered URL" title="Save the URL entered above">
+                        <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M5 12h14M12 5l7 7-7 7"/>
+                        </svg>
+                        Save Input
+                    </button>
+                    <button id="tab-btn" aria-label="Save current tab URL" title="Save the URL of the active tab">
+                        <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M3 3h18v18H3zM3 9h18M9 3v18"/>
+                        </svg>
+                        Save Tab
+                    </button>
+                    <button id="delete-btn" aria-label="Delete all saved leads" title="Double-click to delete all leads">
+                        <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M3 6h18M10 6V4h4v2M5 6l1 14h12L19 6"/>
+                        </svg>
+                        Delete All
+                    </button>
+                </div>
+            </div>
+            <ul id="ul-el" role="list"></ul>
+        </main>
         <script src="script.js"></script>
     </body>
 </html>
